@@ -34,7 +34,8 @@ namespace NetSdrControl
             var dataExchanger = new DataExchanger(new NetSdrUdpClient<DefaultUdpClient>(new DefaultUdpClient(), new NetSdrUdpClientSettings()), new FileSystem(new FileSystemSettings()));
             var receiverState = new ReceiverStateItem(client, messageBuilder, bitDecoder, dataExchanger);
 
-            while (Console.ReadKey().Key != ConsoleKey.Escape)
+            var keyInfo = Console.ReadKey().Key;
+            while (keyInfo != ConsoleKey.Escape)
             {
                 var command = Console.ReadLine();
                 if (string.IsNullOrEmpty(command))
@@ -43,7 +44,7 @@ namespace NetSdrControl
                 }
 
                 var commandParams = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                var commandName = commandParams.FirstOrDefault();
+                var commandName = keyInfo.ToString().ToLower() + commandParams.FirstOrDefault();
                 if (string.IsNullOrEmpty(commandName))
                 {
                     Console.WriteLine("Command name is wrong");
@@ -109,8 +110,9 @@ namespace NetSdrControl
                 catch (Exception ex)
                 {
                     Console.WriteLine("Command failed:");
-                    Console.WriteLine(ex.ToString());
+                    Console.WriteLine(ex.Message);
                 }
+                keyInfo = Console.ReadKey().Key;
             }
         }
     }
