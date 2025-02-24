@@ -1,5 +1,5 @@
 ﻿using System.Net;
-using NetSdrControlTests.UDP;
+using NetSdrControl.Interfaces;
 
 namespace NetSdrControl.DataItems
 {

@@ -1,5 +1,6 @@
 ﻿using System.Net.Sockets;
 using System.Net;
+using NetSdrControl.Interfaces;
 
 namespace NetSdrControl
 {
@@ -13,9 +14,9 @@ namespace NetSdrControl
 
         public bool DataAvailable => _networkStream.DataAvailable;
 
-        public ValueTask<int> ReadAsync(byte[] bytes, CancellationToken token)
+        public Task<int> ReadAsync(byte[] bytes, int offset, int bytesCountToRead, CancellationToken token)
         {
-            return _networkStream.ReadAsync(bytes, token);
+            return _networkStream.ReadAsync(bytes, offset, bytesCountToRead, token);
         }
 
         public ValueTask WriteAsync(byte[] bytes, CancellationToken token)
@@ -32,6 +33,7 @@ namespace NetSdrControl
         public bool Connected => _tcpClient.Connected;
 
         public string IpAddress { get; private set; }
+        public int ConnectTimeMs { get; set; }
 
         private TcpClient _tcpClient;
         public DefaultTcpClient()
@@ -58,6 +60,11 @@ namespace NetSdrControl
         public INetworkStream GetStream()
         {
             return new DefaultNetworkStream(_tcpClient.GetStream());
+        }
+
+        public ITcpClient Clone()
+        {
+            return new DefaultTcpClient() { ConnectTimeMs = ConnectTimeMs };
         }
     }
 }

@@ -1,8 +1,11 @@
 ﻿namespace NetSdrControl
 {
+    /// <summary>
+    /// Allows you to create properties mapping in up to 8('ulong' size) bytes range
+    /// </summary>
     public class PropertyBytesMapping
     {
-        public ulong Value { get; set; }
+        public bool PreserveNotSetIgnoranceOnEncode { get; set; }
         public int ByteIndex { get; set; }
         public int BytesCount { get; set; }
         public Action<object, ulong> PropertySetter { get; set; }

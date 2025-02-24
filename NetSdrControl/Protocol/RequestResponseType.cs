@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace NetSdrControl.Protocol
 {
-    public enum RequestResponseKind : byte
+    public enum RequestResponseType : byte
     {
         Get = 1,
         Set = 0,

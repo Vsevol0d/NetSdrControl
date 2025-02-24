@@ -1,17 +1,15 @@
-﻿namespace NetSdrControl
-{
-    public interface IPropertyBitsMapping
-    {
-        int StartByteIndex { get; set; }
-        byte[] BitIndices { get; set; }
-        Dictionary<byte, object> PossibleValuesMap { get; set; }
-        Dictionary<object, byte> PossibleValuesToByteMap { get; set; }
-        public void SetProperty(object payload, object value);
-        public object? GetProperty(object payload);
-    }
+﻿using NetSdrControl.Interfaces;
 
+namespace NetSdrControl
+{
+    /// <summary>
+    /// Allows you to create properties mapping in up to 8('byte' size) bits range
+    /// </summary>
+    /// <typeparam name="TPayload"></typeparam>
+    /// <typeparam name="TPropertyMapValue"></typeparam>
     public class PropertyBitsMapping<TPayload, TPropertyMapValue> : IPropertyBitsMapping
     {
+        public bool PreserveNotSetIgnoranceOnEncode { get; set; } = false;
         public int StartByteIndex { get; set; }
         public byte[] BitIndices { get; set; }
         public Func<TPayload, TPropertyMapValue?> PropertyGetter { get; set; }

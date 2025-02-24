@@ -1,14 +1,10 @@
 ﻿using NetSdrControl.ControlItems;
+using NetSdrControl.Interfaces;
 using NetSdrControl.Protocol.HelpMessages;
+using NetSdrControl.Protocol.Interfaces;
 
 namespace NetSdrControl.Protocol
 {
-    public interface IMessageBuilder
-    {
-        byte[] BuildSendMessage<TPayload>(RequestResponseKind kind, TPayload payloadParameters, IControlItem<TPayload> controlItem);
-        TPayload? BuildReceiveMessage<TPayload>(byte[] messageBytes, IControlItem<TPayload> controlItem) where TPayload : class, new();
-    }
-
     public class MessageBuilder : IMessageBuilder
     {
         private readonly IBitDecoder _bitDecoder;
@@ -22,10 +18,10 @@ namespace NetSdrControl.Protocol
             _controlItemHeader = controlItemHeader;
         }
 
-        private int CalculatePayloadSize<TPayload>(TPayload payloadParameters, IControlItem<TPayload> controlItem)
+        private int CalculatePayloadSize<TPayload>(RequestResponseType type, TPayload payloadParameters, IControlItem<TPayload> controlItem)
         {
             int maxIndex = 0;
-            var bitMappings = controlItem.GetPropertyBitsMappings(payloadParameters);
+            var bitMappings = controlItem.GetPropertyBitsMappings(type, payloadParameters);
 
             if (bitMappings != null)
             {
@@ -33,7 +29,10 @@ namespace NetSdrControl.Protocol
                 {
                     if (map.GetProperty(payloadParameters) == null)
                     {
-                        continue;
+                        if (!map.PreserveNotSetIgnoranceOnEncode)
+                        {
+                            continue;
+                        }
                     }
 
                     if (maxIndex < map.StartByteIndex + 1)
@@ -43,14 +42,17 @@ namespace NetSdrControl.Protocol
                 }
             }
 
-            var byteMappings = controlItem.GetPropertyBytesMappings(payloadParameters);
+            var byteMappings = controlItem.GetPropertyBytesMappings(type, payloadParameters);
             if (byteMappings != null) 
             {
                 foreach (var map in byteMappings)
                 {
                     if (!map.PropertyGetter(payloadParameters).HasValue)
                     {
-                        continue;
+                        if (!map.PreserveNotSetIgnoranceOnEncode)
+                        {
+                            continue;
+                        }
                     }
 
                     int posIndex = map.ByteIndex;
@@ -75,53 +77,71 @@ namespace NetSdrControl.Protocol
             messageSpan[3] = headerBytes[3];
         }
 
-        private void BuildPayload<TPayload>(Span<byte> payloadSpan, TPayload payloadParameters, IControlItem<TPayload> controlItem)
+        private void BuildPayload<TPayload>(Span<byte> payloadSpan, RequestResponseType type, TPayload payloadParameters, IControlItem<TPayload> controlItem)
         {
             // Get PropertyBitsMappings relevant for current payload parameters
-            var propertyToBitMappings = controlItem.GetPropertyBitsMappings(payloadParameters);
+            var propertyToBitMappings = controlItem.GetPropertyBitsMappings(type, payloadParameters);
             if (propertyToBitMappings != null)
             {
                 foreach (var map in propertyToBitMappings)
                 {
                     object? propertyValue = map.GetProperty(payloadParameters);
+                    byte propertyMappedByte = 0;
+
                     if (propertyValue == null)
                     {
-                        // Skip the properties which were not set
-                        continue;
+                        if (!map.PreserveNotSetIgnoranceOnEncode)
+                        {
+                            // Skip the properties which were not set
+                            continue;
+                        }
                     }
-                    byte propertyMappedByte = map.PossibleValuesToByteMap[propertyValue];
+                    else
+                    {
+                        propertyMappedByte = map.PossibleValuesToByteMap[propertyValue];
+                    }
+                    
                     _bitDecoder.EncodeByte(payloadSpan, map.StartByteIndex, propertyMappedByte);
                 }
             }
 
             // Get PropertyBytesMappings relevant for current payload parameters
-            var propertyToByteMappings = controlItem.GetPropertyBytesMappings(payloadParameters);
+            var propertyToByteMappings = controlItem.GetPropertyBytesMappings(type, payloadParameters);
             if (propertyToByteMappings != null)
             {
                 foreach (var map in propertyToByteMappings)
                 {
                     ulong? propertyValue = map.PropertyGetter(payloadParameters);
+                    ulong propertyMappedBytes = 0;
+
                     if (!propertyValue.HasValue)
                     {
-                        // Skip the properties which were not set
-                        continue;
+                        if (!map.PreserveNotSetIgnoranceOnEncode)
+                        {
+                            // Skip the properties which were not set
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        propertyMappedBytes = propertyValue.Value;
                     }
 
-                    _bitDecoder.EncodeULong(payloadSpan, map.ByteIndex, map.BytesCount, propertyValue.Value);
+                    _bitDecoder.EncodeULong(payloadSpan, map.ByteIndex, map.BytesCount, propertyMappedBytes);
                 }
             }
         }
 
-        public byte[] BuildSendMessage<TPayload>(RequestResponseKind kind, TPayload payloadParameters, IControlItem<TPayload> controlItem)
+        public byte[] BuildSendMessage<TPayload>(RequestResponseType type, TPayload payloadParameters, IControlItem<TPayload> controlItem)
         {
-            ushort messageLength = (ushort)(CalculatePayloadSize(payloadParameters, controlItem) + _controlItemHeader.HeaderAndCodeSize);
+            ushort messageLength = (ushort)(CalculatePayloadSize(type, payloadParameters, controlItem) + _controlItemHeader.HeaderAndCodeSize);
             Span<byte> messageSpan = stackalloc byte[messageLength];
-            BuildHeaderPart(messageSpan, messageLength, (byte)kind, controlItem.Code);
-            BuildPayload(messageSpan.Slice(_controlItemHeader.HeaderAndCodeSize), payloadParameters, controlItem);
+            BuildHeaderPart(messageSpan, messageLength, (byte)type, controlItem.Code);
+            BuildPayload(messageSpan.Slice(_controlItemHeader.HeaderAndCodeSize), type, payloadParameters, controlItem);
             return messageSpan.ToArray();
         }
 
-        public TPayload? BuildReceiveMessage<TPayload>(byte[] messageBytes, IControlItem<TPayload> controlItem) where TPayload : class, new()
+        public TPayload? BuildReceiveMessage<TPayload>(RequestResponseType type, byte[] messageBytes, IControlItem<TPayload> controlItem) where TPayload : class, new()
         {
             // Check for NAK message
             if (_nakMessage.IsNAK(messageBytes))
@@ -136,7 +156,7 @@ namespace NetSdrControl.Protocol
             var payload = messageSpan.Slice(_controlItemHeader.HeaderAndCodeSize);
 
             // Get PropertyBitsMappings relevant for received byte array 
-            var bitsMaps = controlItem.GetPropertyBitsMappings(contextMessageBytes: messageBytes);
+            var bitsMaps = controlItem.GetPropertyBitsMappings(type, contextMessageBytes: messageBytes);
             if (bitsMaps != null)
             {
                 foreach (var map in bitsMaps)
@@ -155,7 +175,7 @@ namespace NetSdrControl.Protocol
             }
 
             // Get PropertyBytesMappings relevant for received byte array 
-            var bytesMaps = controlItem.GetPropertyBytesMappings(contextPayloadBytes: messageBytes);
+            var bytesMaps = controlItem.GetPropertyBytesMappings(type, contextPayloadBytes: messageBytes);
             if (bytesMaps != null)
             {
                 foreach (var map in bytesMaps)

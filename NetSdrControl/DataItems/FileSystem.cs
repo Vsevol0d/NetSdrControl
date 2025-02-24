@@ -11,6 +11,11 @@
             _fileStream = new FileStream(_filePath, FileMode.Create, FileAccess.Write);
         }
 
+        public void CloseFile()
+        {
+            StopWriting();
+        }
+
         public void WriteToFile(ReadOnlySpan<byte> packetSamples)
         {
             try
@@ -36,7 +41,7 @@
 
         public byte[] ReadFromFile()
         {
-            return File.ReadAllBytes(_fileStream.Name);
+            return File.ReadAllBytes(_filePath);
         }
     }
 

@@ -1,9 +1,10 @@
 ﻿using System.Net;
 
-namespace NetSdrControl
+namespace NetSdrControl.Interfaces
 {
     public interface ITcpClient
     {
+        int ConnectTimeMs { get; set; }
         int ReceiveTimeout { get; set; }
         int SendTimeout { get; set; }
         bool Connected { get; }
@@ -13,13 +14,14 @@ namespace NetSdrControl
         INetworkStream GetStream();
         void Close();
         void Dispose();
+        ITcpClient Clone();
     }
 
     public interface INetworkStream
     {
         bool DataAvailable { get; }
 
-        ValueTask<int> ReadAsync(byte[] bytes, CancellationToken token);
+        Task<int> ReadAsync(byte[] bytes, int offset, int bytesCountToRead, CancellationToken token);
         ValueTask WriteAsync(byte[] bytes, CancellationToken token);
     }
 }

@@ -1,10 +1,10 @@
-﻿using NetSdrControl;
+﻿using NetSdrControl.Interfaces;
 using NetSdrControl.Protocol.HelpMessages;
 using System.Net;
 
 namespace NetSdrControlTests
 {
-    public class MockTcpClient : ITcpClient
+    public class FakeTcpClient : ITcpClient
     {
         public int ReceiveTimeout { get => _stream.ReceiveTimeout; set => _stream.ReceiveTimeout = value; }
 
@@ -15,9 +15,11 @@ namespace NetSdrControlTests
 
         public string IpAddress { get; private set; }
 
-        public MockTcpClient() 
+        public int ConnectTimeMs { get; set; } = 5000;
+
+        public FakeTcpClient() 
         {
-            _stream = new MockNetworkStream();
+            _stream = new FakeNetworkStream();
         }
 
         public void Close()
@@ -25,10 +27,10 @@ namespace NetSdrControlTests
             _connected = false;
         }
 
-        public async ValueTask ConnectAsync(IPAddress ipAddress, int port, CancellationToken token)
+        public async virtual ValueTask ConnectAsync(IPAddress ipAddress, int port, CancellationToken token)
         {
             IpAddress = ipAddress.ToString();
-            await Task.Delay(2000);
+            await Task.Delay(ConnectTimeMs, token);
             _connected = true;
         }
 
@@ -37,22 +39,28 @@ namespace NetSdrControlTests
             _connected = false;
         }
 
-        private MockNetworkStream _stream;
+        private FakeNetworkStream _stream;
         public INetworkStream GetStream()
         {
             return _stream;
         }
+
+        public ITcpClient Clone()
+        {
+            return new FakeTcpClient() { ConnectTimeMs = ConnectTimeMs };
+        }
     }
 
-    public class MockNetworkStream : INetworkStream
+    public class FakeNetworkStream : INetworkStream
     {
         public int SendTimeout { get; set; }
         public int ReceiveTimeout { get; set; }
         private Dictionary<string, string> _requestsToResponsesMap;
         private int _currentBytesLength;
         private string _currentBytesString;
+        private byte[] _currentBytes;
 
-        public MockNetworkStream()
+        public FakeNetworkStream()
         {
             _currentBytesLength = 0;
             _requestsToResponsesMap = new Dictionary<string, string>()
@@ -67,9 +75,9 @@ namespace NetSdrControlTests
 
         public bool DataAvailable => _currentBytesLength > 0;
 
-        public async ValueTask<int> ReadAsync(byte[] bytes, CancellationToken token)
+        public async Task<int> ReadAsync(byte[] bytes, int offset, int bytesCountToRead, CancellationToken token)
         {
-            await Task.Delay(3000);
+            await Task.Delay(1000);
             if (!_requestsToResponsesMap.ContainsKey(_currentBytesString))
             {
                 new NAKMessage().WriteToBuffer(bytes);
@@ -78,14 +86,13 @@ namespace NetSdrControlTests
 
             string response = _requestsToResponsesMap[_currentBytesString];
             var responseBytes = GetBytesFromString(response);
-            for (int i = 0; i < responseBytes.Length; i++)
+            for (int i = offset; i < offset + bytesCountToRead; i++)
             {
                 bytes[i] = responseBytes[i];
             }
 
-            var currentBytesLength = _currentBytesLength;
-            _currentBytesLength = 0;
-            return currentBytesLength;
+            _currentBytesLength -= bytesCountToRead;
+            return bytesCountToRead;
         }
 
         private byte[] GetBytesFromString(string str)
@@ -102,6 +109,7 @@ namespace NetSdrControlTests
         {
             await Task.Delay(3000);
 
+            _currentBytes = bytes;
             _currentBytesString = GetStringFromBytes(bytes);
             _currentBytesLength = bytes.Length;
         }

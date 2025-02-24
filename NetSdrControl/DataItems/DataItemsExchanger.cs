@@ -1,12 +1,19 @@
 ﻿namespace NetSdrControl.DataItems
 {
-    public class DataExchanger
+    public interface IDataItemsExchanger
+    {
+        void StartWriting();
+        void StopWriting();
+        byte[] GetSamples();
+    }
+
+    public class DataItemsExchanger : IDataItemsExchanger
     {
         private INetSdrUdpClient _udpClient;
         private IFileSystem _fileSystem;
         private CancellationTokenSource _disconnectionSource;
 
-        public DataExchanger(INetSdrUdpClient udpClient, IFileSystem fileSystem)
+        public DataItemsExchanger(INetSdrUdpClient udpClient, IFileSystem fileSystem)
         {
             _udpClient = udpClient;
             _fileSystem = fileSystem;
@@ -50,6 +57,7 @@
         }
         public void StopWriting()
         {
+            _fileSystem.CloseFile();
             _disconnectionSource.Cancel();
         }
 

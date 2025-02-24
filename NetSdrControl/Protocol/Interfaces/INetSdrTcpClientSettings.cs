@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NetSdrControl.Protocol
+namespace NetSdrControl.Protocol.Interfaces
 {
     public interface INetSdrTcpClientSettings
     {
@@ -12,5 +12,6 @@ namespace NetSdrControl.Protocol
         int MaxPackageSize { get; }
         int SendTimeoutMs { get; }
         int ReceiveTimeoutMs { get; }
+        int ConnectTimeout { get; }
     }
 }

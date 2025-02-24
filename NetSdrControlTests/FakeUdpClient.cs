@@ -1,10 +1,10 @@
-﻿using NetSdrControlTests.UDP;
+﻿using NetSdrControl.Interfaces;
 using System.Net;
 using System.Net.Sockets;
 
 namespace NetSdrControlTests
 {
-    public class MockUdpClient : IUdpClient
+    public class FakeUdpClient : IUdpClient
     {
         public string? IPAddress => "127.0.0.1";
 

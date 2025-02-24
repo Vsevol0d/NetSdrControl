@@ -29,9 +29,9 @@ namespace NetSdrControl
             var controlItemHeader = new ControlItemHeader();
             var messageBuilder = new MessageBuilder(bitDecoder, controlItemHeader, new NAKMessage());
 
-            var client = new NetSdrTcpClient<DefaultTcpClient>(new NetSdrTcpClientSettings(), new DefaultTcpClient(), bitDecoder, controlItemHeader);
+            var client = new NetSdrHost(new NetSdrTcpClientSettings(), new DefaultTcpClient(), bitDecoder, controlItemHeader);
             var frequencyControl = new ReceiverFrequencyControlItem(client, messageBuilder, bitDecoder);
-            var dataExchanger = new DataExchanger(new NetSdrUdpClient<DefaultUdpClient>(new DefaultUdpClient(), new NetSdrUdpClientSettings()), new FileSystem(new FileSystemSettings()));
+            var dataExchanger = new DataItemsExchanger(new NetSdrUdpClient<DefaultUdpClient>(new DefaultUdpClient(), new NetSdrUdpClientSettings()), new FileSystem(new FileSystemSettings()));
             var receiverState = new ReceiverStateItem(client, messageBuilder, bitDecoder, dataExchanger);
 
             var keyInfo = Console.ReadKey().Key;
@@ -59,7 +59,7 @@ namespace NetSdrControl
                             await client.Connect(commandParams[1]);
                             break;
                         case "disconnect":
-                            client.Disconnect();
+                            await client.Disconnect();
                             break;
                         case "get_freq":
                             await frequencyControl.GetFrequency(commandParams[1] switch
